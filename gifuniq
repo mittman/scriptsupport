@@ -1,0 +1,59 @@
+#!/bin/bash
+################
+### gifuniq ####
+version="0.1" ##
+################
+
+checksum="md5sum"
+#length=33
+length=$(echo | $checksum | awk '{print $1}' | wc -c)
+
+# Colors
+EMPHASIS='\e[1;39m'
+ALERT='\e[1;34m'
+WARN='\e[1;33m'
+FAIL='\e[1;31m'
+RESET='\e[0m' 
+
+# Parameters
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+  echo -e "${EMPHASIS}USAGE:${RESET} gifuniq [dir]"
+  echo -e "${EMPHASIS}USAGE:${RESET} gifuniq [none|-h|-V]"
+  exit 0
+elif [ "$1" = "-V" ] || [ "$1" = "--version" ]; then
+  echo "gifuniq - version $version (GPLv3)"
+elif [ -d "$1" ]; then 
+  cd "$1"
+elif [ ! -z "$1" ]; then
+  echo -e "${FAIL}ERROR:${RESET} Invalid parameter $1"
+  exit 1
+fi
+
+# Locate files
+dupes=$(find -type f -name "*.gif" -print0 2>/dev/null | xargs --null ${checksum} | sort | uniq -w ${length} -D)
+content=$(echo "$dupes" | awk '{print $1}' | uniq)
+
+# Loop
+IFS=$(echo -en "\n\b")
+for id in $content; do
+  list=$(echo "$dupes" | grep "^$id" | awk '{$1=""; print $0}' | awk '{$1=$1}1')
+  count=$(echo "$list" | wc -l)
+  echo -e "${ALERT}==>${RESET} ${EMPHASIS}Found $((count-1)) dupes${RESET} [$id]"
+
+  # Keep oldest changed file
+  timestamps=$(stat -c "%Z %n" $list  | sort -n | awk '{$1=""; print $0}' | awk '{$1=$1}1' | awk -F "./" '{print $2}')
+  keep=$(echo "$timestamps" | awk NR==1)
+  trash=$(echo "$timestamps" | tail -n +2)
+  echo -e "${EMPHASIS}Stored:${RESET} $keep"
+  for file in $trash; do
+    echo -e "${EMPHASIS}Remove:${RESET} $file"
+  done
+
+  # Prompt for removal
+  input=N
+  echo -en "${WARN}Confirm${RESET} "
+  read -p "(y/N)? " input
+  if [[ "$input" = [Yy] ]]; then
+    rm -v $trash
+  fi
+done
