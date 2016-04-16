@@ -1,11 +1,15 @@
 # scriptsupport
 Scripts written for Linux User Group #techsupport
 
-* gifuniq
+gifuniq
+=======
 remove duplicate GIF files
+--------
 ![screenshot](screenshot-gifuniq.png)
 
-* scrub-domain
+scrub-domain 
+=======
 remove URLs from Chrome and Firefox history
-![screenshot](screenshot-domain1.png)
-![screenshot](screenshot-domain2.png)
+--------
+![screenshot](screenshot-scrub-domain1.png)
+![screenshot](screenshot-scrub-domain2.png)
