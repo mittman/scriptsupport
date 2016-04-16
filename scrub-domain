@@ -1,0 +1,178 @@
+#!/bin/bash
+##################
+## scrub-domain ##
+##################
+
+#ask=false
+slack="slack-redir.net slack-files.com slack.com"
+domains="facebook.com google.com mozilla.org ${slack}"
+gcProfile=$(ls -d $HOME/.config/google-chrome* | awk NR==1)
+ffProfile=$(ls -d $HOME/.mozilla/firefox/*.default | awk NR==1)
+sqlite="sqlite3"
+
+## Functions
+chromeHistory() {
+  database="${gcProfile}/Default/History"
+  table="urls"
+  key="url"
+  if [ -f "$database" ]; then
+    processHistory
+  else
+    echo "ERROR: file $database does not exist"
+  fi
+}
+
+chromeStorage() {
+  storage="${gcProfile}/Default/Local Storage"
+  wildcard=".localstorage"
+  filetype="f"
+  if [ -d "$storage" ]; then
+    processStorage
+  else
+    echo "ERROR: directory $storage does not exist"
+  fi
+}
+
+firefoxHistory() {
+  database="${ffProfile}/places.sqlite"
+  table="moz_places"
+  key="url"
+  if [ -f "$database" ]; then
+    processHistory
+  else
+    echo "ERROR: file $database does not exist"
+  fi
+}
+
+firefoxStorage() {
+  storage="${ffProfile}/storage"
+  filetype="d"
+  wildcard="+++"
+  if [ -d "$storage" ]; then
+    processStorage
+  else
+    echo "ERROR: directory $storage does not exist"
+  fi
+}
+
+debugEntries() {
+  before=0
+  $sqlite "$database" ".dump ${table}" | grep --color "$keyword"
+}
+
+countEntries() {
+  $sqlite "$database" "SELECT * FROM ${table} ${query}" 2>/dev/null | grep "$keyword" | wc -l
+}
+
+printEntries() {
+  $sqlite "$database" "SELECT * FROM ${table} ${query}" | grep --color=always "$keyword" | less -R
+}
+
+removeEntries() {
+  $sqlite "$database" "DELETE FROM ${table} ${query}"
+}
+
+debugStorage() {
+  former=0
+  find "$storage" -name "*${keyword}*" 2>/dev/null | grep --color=always "$wildcard"
+}
+
+countStorage() {
+  find "$storage" -name "*${keyword}*" 2>/dev/null | wc -l
+}
+
+listStorage() {
+  find "$storage" -name "*${keyword}*" | less
+}
+
+removeStorage() {
+  find "$storage" -type "$filetype" -name "*${keyword}*" -exec rm -r "{}" \; 2>/dev/null
+}
+
+processHistory() {
+  echo
+  echo "====> Opening $database"
+  for keyword in $domains; do
+
+    echo "==> Processing $keyword"
+    query="WHERE ',' || ${key} || ',' like '%${keyword}%'"
+
+    ## Count history
+    before=$(countEntries)
+
+    ## Debugging
+    #debugEntries
+
+    ## Do something
+    if [ "$before" -gt 0 ]; then
+
+      if [ "$ask" != false ]; then
+        ## Print entries
+        printEntries
+
+        ## Prompt user
+        read -p "Delete $before entries? [y/N]: " input
+      else
+        ## Automatic
+        input="Y"
+      fi
+
+      if [[ "$input" = [Yy] ]]; then
+        ## Remove entries
+        removeEntries
+        after=$(countEntries)
+        echo ":: Purged $((before-after)) entries containing $keyword"
+      fi
+    else
+      echo ":: Keyword $keyword not found"
+    fi
+
+  done
+}
+
+processStorage() {
+  echo
+  echo "====> Inspecting $storage"
+  for keyword in $domains; do
+
+    echo "==> Processing $keyword"
+
+    ## Count local storage
+    former=$(countStorage)
+
+    ## Debugging
+    #debugStorage
+
+    if [ "$former" -gt 0 ]; then
+
+      if [ "$ask" != false ]; then
+        ## List storage
+        listStorage
+
+        ## Prompt user
+        read -p "Delete $former storage files? [y/N]: " input
+      else
+        ## Automatic
+        input="Y"
+      fi
+
+      if [[ "$input" = [Yy] ]]; then
+        ## Remove storage
+        removeStorage
+        latter=$(countStorage)
+        echo ":: Purged $((former-latter)) storage files containing $keyword"
+      fi
+    else
+      echo ":: Storage with $keyword not found"
+    fi
+
+  done
+}
+
+## Scrub browsers
+chromeHistory
+chromeStorage
+firefoxHistory
+firefoxStorage
+
+### END ###
