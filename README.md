@@ -1,6 +1,10 @@
 # scriptsupport
 Scripts written for Linux User Group #techsupport
 
+symlink
+=======
+create symbolic links to specified files
+
 gifuniq
 =======
 remove duplicate GIF files
